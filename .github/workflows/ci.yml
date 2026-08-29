@@ -1,8 +1,11 @@
 name: CI
 
 # Reusable — invoked by release.yml as its required first job (`needs: ci`),
-# plus workflow_dispatch for manually running it standalone.
+# plus pull_request to test PR branches and workflow_dispatch for manually
+# running it standalone.
 on:
+  pull_request:
+    branches: [main]
   workflow_call:
   workflow_dispatch:
 
