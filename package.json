@@ -30,12 +30,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/AceTheCreator/apiuikit-cli"
+    "url": "https://github.com/apiuikit/apiuikit-cli"
   },
   "bugs": {
-    "url": "https://github.com/AceTheCreator/apiuikit-cli/issues"
+    "url": "https://github.com/apiuikit/apiuikit-cli/issues"
   },
-  "homepage": "https://github.com/AceTheCreator/apiuikit-cli#readme",
+  "homepage": "https://github.com/apiuikit/apiuikit-cli#readme",
   "publishConfig": {
     "access": "public"
   },
