@@ -64,4 +64,46 @@ describe("buildHtml", () => {
     expect(html.startsWith("<!doctype html>")).toBe(true);
     expect(html).toContain('<meta charset="utf-8" />');
   });
+
+  it("omits header/footer content when not provided", () => {
+    const html = buildHtml({ ...baseOptions, type: "openapi" });
+    expect(html).not.toContain("apiuikit-header-test");
+    expect(html).not.toContain("apiuikit-footer-test");
+  });
+
+  it("injects header HTML before the renderer element, unescaped", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      headerHtml: '<div class="apiuikit-header-test">Beta docs</div>',
+    });
+    const headerIndex = html.indexOf('<div class="apiuikit-header-test">Beta docs</div>');
+    const elementIndex = html.indexOf('<apiuikit-openapi-renderer id="apiuikit-doc">');
+    expect(headerIndex).toBeGreaterThan(-1);
+    expect(headerIndex).toBeLessThan(elementIndex);
+  });
+
+  it("injects footer HTML after the spec script and before </body>, unescaped", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      footerHtml: '<footer class="apiuikit-footer-test">&copy; 2026</footer>',
+    });
+    const scriptCloseIndex = html.lastIndexOf("</script>");
+    const footerIndex = html.indexOf('<footer class="apiuikit-footer-test">&copy; 2026</footer>');
+    const bodyCloseIndex = html.indexOf("</body>");
+    expect(footerIndex).toBeGreaterThan(scriptCloseIndex);
+    expect(footerIndex).toBeLessThan(bodyCloseIndex);
+  });
+
+  it("injects both header and footer together", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      headerHtml: '<div class="apiuikit-header-test"></div>',
+      footerHtml: '<div class="apiuikit-footer-test"></div>',
+    });
+    expect(html).toContain('<div class="apiuikit-header-test"></div>');
+    expect(html).toContain('<div class="apiuikit-footer-test"></div>');
+  });
 });
