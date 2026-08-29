@@ -1,5 +1,10 @@
 # @apiuikit/cli
 
+[![npm version](https://img.shields.io/npm/v/@apiuikit/cli.svg?label=%40apiuikit%2Fcli)](https://www.npmjs.com/package/@apiuikit/cli)
+[![npm downloads](https://img.shields.io/npm/dm/@apiuikit/cli.svg)](https://www.npmjs.com/package/@apiuikit/cli)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
+[![Website](https://img.shields.io/badge/website-apiuikit.com-1473FF.svg)](https://apiuikit.com)
+
 Generate a static API documentation site from a local OpenAPI or AsyncAPI spec — no React, no frontend project required. Powered by [APIUIKit](https://github.com/AceTheCreator/apiuikit).
 
 Built for projects that don't have a React/frontend toolchain in the loop: Java/Spring, Maven, Go, Python, CI/CD pipelines, and docs-only repos.
@@ -60,6 +65,26 @@ The generated `index.html`, along with a self-contained script and stylesheet un
 apiuikit generate ./openapi.yaml --config ./apiuikit.config.json
 ```
 
+### Validating a spec
+
+```bash
+apiuikit validate <input> [options]
+```
+
+Runs real schema validation against a local OpenAPI or AsyncAPI document, powered by [`@scalar/openapi-parser`](https://www.npmjs.com/package/@scalar/openapi-parser) and [`@asyncapi/parser`](https://www.npmjs.com/package/@asyncapi/parser) — the same parsers `apiuikit` itself uses. Exits with code `1` and prints each error if the spec is invalid, `0` (with any warnings printed) if it's valid.
+
+These parsers are heavy, so they're never bundled with the CLI — they're declared as optional peer dependencies and only fetched the first time you actually run `validate`. If one isn't installed yet, you'll be prompted to install it on the spot; pass `-y`/`--yes` to skip the prompt and install automatically (handy in CI).
+
+| Flag | Description | Default |
+|---|---|---|
+| `-y, --yes` | Install the required validator package automatically without prompting | `false` |
+
+```bash
+apiuikit validate ./openapi.yaml
+apiuikit validate ./asyncapi.json
+apiuikit validate ./spec.yaml --yes
+```
+
 ### Previewing the output
 
 ```bash
@@ -85,6 +110,7 @@ apiuikit serve --open
 apiuikit --help
 apiuikit generate --help
 apiuikit serve --help
+apiuikit validate --help
 ```
 
 ## How it works
