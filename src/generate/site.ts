@@ -32,9 +32,20 @@ export interface BuildHtmlOptions {
   config?: ParsedConfig;
   scriptHref: string;
   styleHref: string;
+  headerHtml?: string;
+  footerHtml?: string;
 }
 
-export function buildHtml({ type, title, specText, config, scriptHref, styleHref }: BuildHtmlOptions): string {
+export function buildHtml({
+  type,
+  title,
+  specText,
+  config,
+  scriptHref,
+  styleHref,
+  headerHtml,
+  footerHtml,
+}: BuildHtmlOptions): string {
   const tag = ELEMENT_TAG[type];
   if (!tag) {
     throw new Error(`Unknown spec type: ${type}`);
@@ -45,6 +56,8 @@ export function buildHtml({ type, title, specText, config, scriptHref, styleHref
   const configAssignment = config
     ? `\n  document.getElementById("apiuikit-doc").config = ${toInlineScriptLiteral(config)};`
     : "";
+  const headerBlock = headerHtml ? `${headerHtml}\n` : "";
+  const footerBlock = footerHtml ? `${footerHtml}\n` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -57,12 +70,12 @@ export function buildHtml({ type, title, specText, config, scriptHref, styleHref
 <style>html,body{margin:0;padding:0;}</style>
 </head>
 <body>
-<${tag} id="apiuikit-doc"></${tag}>
+${headerBlock}<${tag} id="apiuikit-doc"></${tag}>
 <script src="${scriptHref}"></script>
 <script>
   document.getElementById("apiuikit-doc").spec = ${specLiteral};${configAssignment}
 </script>
-</body>
+${footerBlock}</body>
 </html>
 `;
 }

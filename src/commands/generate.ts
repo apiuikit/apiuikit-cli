@@ -4,6 +4,7 @@ import pc from "picocolors";
 import type { Command } from "commander";
 import { readSpecFile, detectSpecType, getSpecTitle, type SpecType } from "../utils/spec.js";
 import { readConfigFile } from "../utils/config.js";
+import { readHtmlFragmentFile } from "../utils/htmlFragment.js";
 import { copyWebComponentAssets } from "../generate/assets.js";
 import { buildHtml } from "../generate/site.js";
 import { box, error as printError, examples } from "../utils/output.js";
@@ -16,6 +17,8 @@ const TYPE_LABEL: Record<SpecType, string> = {
 interface GenerateOptions {
   output: string;
   config?: string;
+  header?: string;
+  footer?: string;
   force: boolean;
 }
 
@@ -27,6 +30,8 @@ export function registerGenerateCommand(program: Command): void {
     .argument("<input>", "path to a local .yaml, .yml, or .json OpenAPI/AsyncAPI spec")
     .option("-o, --output <dir>", "output directory for the generated site", "apiuikit-docs")
     .option("-c, --config <file>", "path to a JSON or YAML config file passed through to apiuikit (theme, sidebar, show/hide sections, etc.)")
+    .option("--header <file>", "path to an HTML file injected at the top of the page, before the documentation")
+    .option("--footer <file>", "path to an HTML file injected at the bottom of the page, after the documentation")
     .option("-f, --force", "overwrite the output directory if it already contains files", false)
     .addHelpText(
       "after",
@@ -35,6 +40,7 @@ export function registerGenerateCommand(program: Command): void {
           "apiuikit generate ./openapi.yaml",
           "apiuikit generate ./asyncapi.json --output ./site",
           "apiuikit generate ./spec.yaml --config ./apiuikit.config.json",
+          "apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html",
           "apiuikit generate ./spec.yaml --output ./docs --force",
         ]),
     )
@@ -56,11 +62,17 @@ function runGenerate(input: string, options: GenerateOptions): void {
   const type = detectSpecType(parsed);
   const title = getSpecTitle(parsed);
   const config = options.config ? readConfigFile(path.resolve(process.cwd(), options.config)) : undefined;
+  const headerHtml = options.header
+    ? readHtmlFragmentFile(path.resolve(process.cwd(), options.header), "header")
+    : undefined;
+  const footerHtml = options.footer
+    ? readHtmlFragmentFile(path.resolve(process.cwd(), options.footer), "footer")
+    : undefined;
 
   ensureOutputDir(outputDir, options.force);
 
   const { scriptHref, styleHref } = copyWebComponentAssets(outputDir);
-  const html = buildHtml({ type, title, specText: raw, config, scriptHref, styleHref });
+  const html = buildHtml({ type, title, specText: raw, config, scriptHref, styleHref, headerHtml, footerHtml });
 
   writeFileSync(path.join(outputDir, "index.html"), html, "utf8");
 
@@ -70,6 +82,8 @@ function runGenerate(input: string, options: GenerateOptions): void {
     ["Title", title],
     ["Output", path.relative(process.cwd(), outputDir) || "."],
     ...(config && options.config ? ([["Config", options.config]] as [string, string][]) : []),
+    ...(headerHtml && options.header ? ([["Header", options.header]] as [string, string][]) : []),
+    ...(footerHtml && options.footer ? ([["Footer", options.footer]] as [string, string][]) : []),
   ]);
   console.log();
   console.log(`Open it in a browser:`);

@@ -41,6 +41,8 @@ apiuikit generate <input> [options]
 |---|---|---|
 | `-o, --output <dir>` | Output directory for the generated site | `apiuikit-docs` |
 | `-c, --config <file>` | JSON or YAML config file passed through to apiuikit | — |
+| `--header <file>` | HTML file injected at the top of the page, before the documentation | — |
+| `--footer <file>` | HTML file injected at the bottom of the page, after the documentation | — |
 | `-f, --force` | Overwrite the output directory if it already contains files | `false` |
 
 ### Examples
@@ -49,6 +51,7 @@ apiuikit generate <input> [options]
 apiuikit generate ./openapi.yaml
 apiuikit generate ./asyncapi.json --output ./site
 apiuikit generate ./spec.yaml --config ./apiuikit.config.json
+apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html
 apiuikit generate ./spec.yaml --output ./docs --force
 ```
 
@@ -69,6 +72,31 @@ The generated `index.html`, along with a self-contained script and stylesheet un
 
 ```bash
 apiuikit generate ./openapi.yaml --config ./apiuikit.config.json
+```
+
+### Header & footer
+
+`--header`/`--footer` point at local `.html` files whose contents are injected verbatim (unescaped) around the documentation element — the header just after `<body>`, the footer just before `</body>`. Use them for banners, nav links, custom branding, or a page footer.
+
+```html
+<!-- header.html -->
+<div class="my-header">
+  <style>.my-header { padding: 8px 16px; background: #1a1b26; color: #fff; }</style>
+  Beta docs — <a href="https://example.com">back to site</a>
+</div>
+```
+
+```bash
+apiuikit generate ./openapi.yaml --header ./header.html --footer ./footer.html
+```
+
+Any CSS in these files — `<style>` blocks, inline `style="..."`, or a `<link rel="stylesheet">` to an asset you manage yourself — is applied normally, since the fragment becomes real page markup. The `<apiuikit-openapi-renderer>`/`<apiuikit-asyncapi-renderer>` element renders inside a Shadow DOM, so your header/footer styles can't leak into (or be overridden by) the documentation UI — but there's no isolation between the header and footer themselves, or from the page shell's own minimal CSS. Scope your selectors with a unique class or ID (as above) to avoid collisions.
+
+See [`examples/branding/`](examples/branding/) for a ready-to-use header/footer html fragment.
+
+For example:
+```bash
+apiuikit generate ./openapi.yaml --header examples/branding/header.html --footer examples/branding/footer.html
 ```
 
 ### Validating a spec

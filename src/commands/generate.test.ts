@@ -88,6 +88,52 @@ describe("generate command", () => {
     expect(html).toContain('.config = {"theme":"dark"};');
   });
 
+  it("injects header and footer HTML files into the generated page", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    const headerFile = path.join(dir, "header.html");
+    const footerFile = path.join(dir, "footer.html");
+    writeFileSync(input, OPENAPI_SPEC);
+    writeFileSync(headerFile, '<div class="my-header">Beta docs</div>');
+    writeFileSync(footerFile, '<footer class="my-footer">&copy; 2026</footer>');
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--header", headerFile, "--footer", footerFile]);
+
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    const headerIndex = html.indexOf('<div class="my-header">Beta docs</div>');
+    const elementIndex = html.indexOf("<apiuikit-openapi-renderer");
+    const footerIndex = html.indexOf('<footer class="my-footer">&copy; 2026</footer>');
+    const bodyCloseIndex = html.indexOf("</body>");
+    expect(headerIndex).toBeGreaterThan(-1);
+    expect(headerIndex).toBeLessThan(elementIndex);
+    expect(footerIndex).toBeGreaterThan(-1);
+    expect(footerIndex).toBeLessThan(bodyCloseIndex);
+  });
+
+  it("sets a non-zero exit code and prints an error for a missing header file", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--header", path.join(dir, "missing.html")]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("No such header file");
+    expect(existsSync(output)).toBe(false);
+  });
+
+  it("sets a non-zero exit code and prints an error for a missing footer file", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--footer", path.join(dir, "missing.html")]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("No such footer file");
+    expect(existsSync(output)).toBe(false);
+  });
+
   it("sets a non-zero exit code and prints an error for a missing input file", async () => {
     const input = path.join(dir, "missing.yaml");
     const output = path.join(dir, "site");

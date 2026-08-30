@@ -21,3 +21,14 @@ node bin/apiuikit.js generate examples/asyncapi/torture.json --output /tmp/tortu
 ```
 
 Then open `<output>/index.html` directly in a browser.
+
+## Header/footer branding
+
+`branding/header.html` and `branding/footer.html` are sample `--header`/`--footer` fragments — a dark top bar with an APIUIKit wordmark + GitHub/npm links, and a matching footer credit line. Each is self-contained (its `<style>` is scoped to a unique class, per the [README](../README.md#header--footer)), so you can drop either one in as-is or use it as a starting point for your own branding.
+
+```bash
+node bin/apiuikit.js generate examples/openapi/petstore.json \
+  --header examples/branding/header.html \
+  --footer examples/branding/footer.html \
+  --output /tmp/petstore-docs --force
+```
