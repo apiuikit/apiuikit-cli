@@ -1,6 +1,6 @@
 {
   "name": "@apiuikit/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Generate a static API documentation site from a local OpenAPI or AsyncAPI spec, powered by APIUIKit.",
   "keywords": [
     "openapi",
