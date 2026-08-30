@@ -34,43 +34,43 @@ describe("run", () => {
     process.exitCode = undefined;
   });
 
-  it("prints help and does not exit when called with no arguments", () => {
-    run(["node", "apiuikit"]);
+  it("prints help and does not exit when called with no arguments", async () => {
+    await run(["node", "apiuikit"]);
 
     expect(exitSpy).not.toHaveBeenCalled();
     const output = [...logSpy.mock.calls.flat(), ...stdoutSpy.mock.calls.flat()].join("\n");
     expect(output).toContain("apiuikit");
   });
 
-  it("prints the package version and exits 0 for --version", () => {
-    run(["node", "apiuikit", "--version"]);
+  it("prints the package version and exits 0 for --version", async () => {
+    await run(["node", "apiuikit", "--version"]);
 
     expect(exitSpy).toHaveBeenCalledWith(0);
     const output = stdoutSpy.mock.calls.map((call: unknown[]) => String(call[0])).join("");
     expect(output).toContain(pkg.version);
   });
 
-  it("exits non-zero for an unknown command", () => {
-    run(["node", "apiuikit", "not-a-real-command"]);
+  it("exits non-zero for an unknown command", async () => {
+    await run(["node", "apiuikit", "not-a-real-command"]);
 
     expect(exitSpy).toHaveBeenCalled();
     expect(exitSpy.mock.calls[0][0]).not.toBe(0);
   });
 
-  it("delegates to the generate command and sets exitCode without calling process.exit on a handled error", () => {
-    run(["node", "apiuikit", "generate", path.join(dir, "missing.yaml")]);
+  it("delegates to the generate command and sets exitCode without calling process.exit on a handled error", async () => {
+    await run(["node", "apiuikit", "generate", path.join(dir, "missing.yaml")]);
 
     expect(process.exitCode).toBe(1);
     expect(exitSpy).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });
 
-  it("delegates to the generate command end-to-end for a valid spec", () => {
+  it("delegates to the generate command end-to-end for a valid spec", async () => {
     const input = path.join(dir, "spec.yaml");
     const output = path.join(dir, "site");
     writeFileSync(input, "openapi: 3.0.0\ninfo:\n  title: CLI Test\n");
 
-    run(["node", "apiuikit", "generate", input, "--output", output]);
+    await run(["node", "apiuikit", "generate", input, "--output", output]);
 
     expect(process.exitCode).toBeUndefined();
     expect(existsSync(path.join(output, "index.html"))).toBe(true);
