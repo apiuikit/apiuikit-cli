@@ -23,11 +23,17 @@ npx @apiuikit/cli generate ./openapi.yaml
 
 ## Usage
 
+| Command | What it does |
+|---|---|
+| [`apiuikit generate <input>`](#usage) | Build a static docs site from a spec |
+| [`apiuikit validate <input>`](#validating-a-spec) | Check a spec for schema errors |
+| [`apiuikit serve [dir]`](#previewing-the-output) | Preview a generated site locally |
+
 ```bash
 apiuikit generate <input> [options]
 ```
 
-`<input>` is a local `.yaml`, `.yml`, or `.json` OpenAPI or AsyncAPI document. The spec type is detected automatically from its top-level `openapi`/`swagger` or `asyncapi` field.
+`<input>` is a local `.yaml`, `.yml`, or `.json` OpenAPI or AsyncAPI document. The spec type is detected automatically from its top-level `openapi`/`swagger` or `asyncapi` field. `generate` and `validate` both accept `<input>` on these same terms.
 
 ### Options
 
@@ -71,9 +77,7 @@ apiuikit generate ./openapi.yaml --config ./apiuikit.config.json
 apiuikit validate <input> [options]
 ```
 
-Runs real schema validation against a local OpenAPI or AsyncAPI document, powered by [`@scalar/openapi-parser`](https://www.npmjs.com/package/@scalar/openapi-parser) and [`@asyncapi/parser`](https://www.npmjs.com/package/@asyncapi/parser) — the same parsers `apiuikit` itself uses. Exits with code `1` and prints each error if the spec is invalid, `0` (with any warnings printed) if it's valid.
-
-These parsers are heavy, so they're never bundled with the CLI — they're declared as optional peer dependencies and only fetched the first time you actually run `validate`. If one isn't installed yet, you'll be prompted to install it on the spot; pass `-y`/`--yes` to skip the prompt and install automatically (handy in CI).
+Runs real schema validation against a local OpenAPI or AsyncAPI document, powered by [`@scalar/openapi-parser`](https://www.npmjs.com/package/@scalar/openapi-parser) and [`@asyncapi/parser`](https://www.npmjs.com/package/@asyncapi/parser) — the same parsers `apiuikit` itself uses. It exits `1` and prints every error if the spec is invalid, and `0` if it's valid. AsyncAPI validation may also report warnings; these are printed but don't affect the exit code.
 
 | Flag | Description | Default |
 |---|---|---|
@@ -84,6 +88,22 @@ apiuikit validate ./openapi.yaml
 apiuikit validate ./asyncapi.json
 apiuikit validate ./spec.yaml --yes
 ```
+
+#### Installing the validators
+
+The parsers are heavy, so they're never bundled with the CLI. They're declared as optional peer dependencies and only fetched the first time you actually run `validate`.
+
+The cleanest option is to install the one you need up front, which skips the on-demand install entirely:
+
+```bash
+npm install --save-dev @scalar/openapi-parser@^0.28.10   # for OpenAPI specs
+npm install --save-dev @asyncapi/parser@^3.6.0           # for AsyncAPI specs
+```
+
+Otherwise `validate` handles it for you, and what happens depends on where you're running:
+
+- **In an interactive terminal**, you're asked for confirmation, then the parser is installed as a **dev dependency of the current directory** — using whichever package manager the directory's lockfile points at (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `bun.lockb` → bun, otherwise npm). This writes to that project's `package.json` and `node_modules`, so if you're in a repo without a JavaScript toolchain, prefer installing the parser somewhere deliberate or use the pre-install commands above.
+- **In CI or any non-interactive shell** (no TTY, or `CI` is set), there's no prompt: `validate` fails with manual install instructions unless you pass `-y`/`--yes`, which installs without asking.
 
 ### Previewing the output
 
