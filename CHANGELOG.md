@@ -1,5 +1,11 @@
 # @apiuikit/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- 2607c78: Add `--header`/`--footer` flags to `generate`, letting you inject local HTML files (with their own CSS) before and after the generated documentation. Includes example header/footer fixtures under `examples/branding/`.
+
 ## 0.2.0
 
 ### Minor Changes
