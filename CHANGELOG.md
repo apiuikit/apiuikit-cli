@@ -1,5 +1,12 @@
 # @apiuikit/cli
 
+## 0.4.0
+
+### Minor Changes
+
+- bd8eb74: `generate` now accepts a `http://`/`https://` URL for `--header` and `--footer` — HTML fragments are fetched directly, on the same terms as the spec and `--config`.
+- bd8eb74: `generate` and `validate` now accept a `http://`/`https://` URL for `<input>`, and `--config` accepts a URL too — the spec/config is fetched directly instead of requiring a local download first.
+
 ## 0.3.0
 
 ### Minor Changes
