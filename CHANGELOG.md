@@ -1,5 +1,11 @@
 # @apiuikit/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- Bump `@apiuikit/web-component` to v1.6.0 for generated docs.
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@apiuikit/cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Generate a static API documentation site from a local OpenAPI or AsyncAPI spec, powered by APIUIKit.",
   "keywords": [
     "openapi",
@@ -52,7 +52,7 @@
     "release": "npm run build && changeset publish"
   },
   "dependencies": {
-    "@apiuikit/web-component": "^1.5.0",
+    "@apiuikit/web-component": "^1.6.0",
     "commander": "^15.0.0",
     "picocolors": "^1.1.1",
     "yaml": "^2.9.0"
