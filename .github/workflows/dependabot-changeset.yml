@@ -1,0 +1,55 @@
+name: Dependabot changeset
+
+# When Dependabot bumps @apiuikit/web-component, add a patch changeset so the
+# release workflow can version @apiuikit/cli after merge.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  apiuikit-web-component:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Checkout PR branch
+        if: contains(steps.metadata.outputs.dependency-names, '@apiuikit/web-component')
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Add changeset for @apiuikit/web-component bump
+        if: contains(steps.metadata.outputs.dependency-names, '@apiuikit/web-component')
+        run: |
+          version=$(node -p "require('./package-lock.json').packages['node_modules/@apiuikit/web-component'].version")
+          rm -f .changeset/dependabot-apiuikit-*.md
+          cat > ".changeset/dependabot-apiuikit-${version}.md" <<EOF
+          ---
+          "@apiuikit/cli": patch
+          ---
+
+          Bump @apiuikit/web-component to v${version}.
+          EOF
+
+      - name: Commit changeset
+        if: contains(steps.metadata.outputs.dependency-names, '@apiuikit/web-component')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .changeset/
+          if git diff --staged --quiet; then
+            echo "Changeset already up to date"
+          else
+            git commit -m "chore: add changeset for @apiuikit/web-component bump"
+            git push
+          fi
