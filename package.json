@@ -59,7 +59,7 @@
   },
   "peerDependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@scalar/openapi-parser": "^0.28.10"
+    "@scalar/openapi-parser": "^0.29.0"
   },
   "peerDependenciesMeta": {
     "@asyncapi/parser": {
@@ -72,7 +72,7 @@
   "devDependencies": {
     "@asyncapi/parser": "^3.6.3",
     "@changesets/cli": "^3.0.1",
-    "@scalar/openapi-parser": "^0.28.10",
+    "@scalar/openapi-parser": "^0.29.0",
     "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^7.0.2",
