@@ -4,12 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 10
-    groups:
-      apiuikit:
-        patterns:
-          - "@apiuikit/*"
-      dev-dependencies:
-        dependency-type: "development"
-        patterns:
-          - "*"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-name: "@apiuikit/web-component"
