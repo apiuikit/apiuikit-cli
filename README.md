@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![Website](https://img.shields.io/badge/website-apiuikit.com-1473FF.svg)](https://apiuikit.com)
 
-Generate a static API documentation site from a local OpenAPI or AsyncAPI spec — no React, no frontend project required. Powered by [APIUIKit](https://github.com/AceTheCreator/apiuikit).
+Generate a static API documentation site from a local or remote OpenAPI or AsyncAPI spec — no React, no frontend project required. Powered by [APIUIKit](https://github.com/AceTheCreator/apiuikit).
 
 Built for projects that don't have a React/frontend toolchain in the loop: Java/Spring, Maven, Go, Python, CI/CD pipelines, and docs-only repos.
 
@@ -33,16 +33,16 @@ npx @apiuikit/cli generate ./openapi.yaml
 apiuikit generate <input> [options]
 ```
 
-`<input>` is a local `.yaml`, `.yml`, or `.json` OpenAPI or AsyncAPI document. The spec type is detected automatically from its top-level `openapi`/`swagger` or `asyncapi` field. `generate` and `validate` both accept `<input>` on these same terms.
+`<input>` is a `.yaml`, `.yml`, or `.json` OpenAPI or AsyncAPI document — either a local path or a `http://`/`https://` URL. The spec type is detected automatically from its top-level `openapi`/`swagger` or `asyncapi` field. `generate` and `validate` both accept `<input>` on these same terms.
 
 ### Options
 
 | Flag | Description | Default |
 |---|---|---|
 | `-o, --output <dir>` | Output directory for the generated site | `apiuikit-docs` |
-| `-c, --config <file>` | JSON or YAML config file passed through to apiuikit | — |
-| `--header <file>` | HTML file injected at the top of the page, before the documentation | — |
-| `--footer <file>` | HTML file injected at the bottom of the page, after the documentation | — |
+| `-c, --config <file>` | JSON or YAML config file passed through to apiuikit — path or URL | — |
+| `--header <file>` | HTML file injected at the top of the page, before the documentation — path or URL | — |
+| `--footer <file>` | HTML file injected at the bottom of the page, after the documentation — path or URL | — |
 | `-f, --force` | Overwrite the output directory if it already contains files | `false` |
 
 ### Examples
@@ -50,16 +50,19 @@ apiuikit generate <input> [options]
 ```bash
 apiuikit generate ./openapi.yaml
 apiuikit generate ./asyncapi.json --output ./site
+apiuikit generate https://example.com/openapi.yaml
 apiuikit generate ./spec.yaml --config ./apiuikit.config.json
 apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html
 apiuikit generate ./spec.yaml --output ./docs --force
 ```
 
+`<input>` also accepts a `http://`/`https://` URL — the spec is fetched directly, nothing is downloaded to disk first. This is useful when the spec is published by another repo, an API gateway, or a docs CDN rather than checked into your project. `--config`, `--header`, and `--footer` accept a URL on the same terms.
+
 The generated `index.html`, along with a self-contained script and stylesheet under `assets/`, is fully static — open it directly from disk (`file://`) or serve it from any static host (GitHub Pages, S3, nginx, etc.). No build step, no server, no network calls at runtime.
 
 ### Config
 
-`--config` points at a local `.json`, `.yaml`, or `.yml` file whose contents are passed straight through as the `config` prop on the underlying `<apiuikit-openapi-renderer>`/`<apiuikit-asyncapi-renderer>` element — the same `ConfigInterface` used by apiuikit's React and web-component APIs (theme colors, `show`/`expand` toggles for sidebar/servers/schemas/code samples/etc., `topOffset`, custom request/reply labels, and more).
+`--config` points at a `.json`, `.yaml`, or `.yml` file — a local path or a URL — whose contents are passed straight through as the `config` prop on the underlying `<apiuikit-openapi-renderer>`/`<apiuikit-asyncapi-renderer>` element — the same `ConfigInterface` used by apiuikit's React and web-component APIs (theme colors, `show`/`expand` toggles for sidebar/servers/schemas/code samples/etc., `topOffset`, custom request/reply labels, and more).
 
 ```json
 {
@@ -72,11 +75,12 @@ The generated `index.html`, along with a self-contained script and stylesheet un
 
 ```bash
 apiuikit generate ./openapi.yaml --config ./apiuikit.config.json
+apiuikit generate ./openapi.yaml --config https://example.com/apiuikit.config.json
 ```
 
 ### Header & footer
 
-`--header`/`--footer` point at local `.html` files whose contents are injected verbatim (unescaped) around the documentation element — the header just after `<body>`, the footer just before `</body>`. Use them for banners, nav links, custom branding, or a page footer.
+`--header`/`--footer` point at `.html` files — a local path or a URL — whose contents are injected verbatim (unescaped) around the documentation element — the header just after `<body>`, the footer just before `</body>`. Use them for banners, nav links, custom branding, or a page footer.
 
 ```html
 <!-- header.html -->
@@ -88,6 +92,7 @@ apiuikit generate ./openapi.yaml --config ./apiuikit.config.json
 
 ```bash
 apiuikit generate ./openapi.yaml --header ./header.html --footer ./footer.html
+apiuikit generate ./openapi.yaml --header https://example.com/header.html --footer https://example.com/footer.html
 ```
 
 Any CSS in these files — `<style>` blocks, inline `style="..."`, or a `<link rel="stylesheet">` to an asset you manage yourself — is applied normally, since the fragment becomes real page markup. The `<apiuikit-openapi-renderer>`/`<apiuikit-asyncapi-renderer>` element renders inside a Shadow DOM, so your header/footer styles can't leak into (or be overridden by) the documentation UI — but there's no isolation between the header and footer themselves, or from the page shell's own minimal CSS. Scope your selectors with a unique class or ID (as above) to avoid collisions.
@@ -105,7 +110,7 @@ apiuikit generate ./openapi.yaml --header examples/branding/header.html --footer
 apiuikit validate <input> [options]
 ```
 
-Runs real schema validation against a local OpenAPI or AsyncAPI document, powered by [`@scalar/openapi-parser`](https://www.npmjs.com/package/@scalar/openapi-parser) and [`@asyncapi/parser`](https://www.npmjs.com/package/@asyncapi/parser) — the same parsers `apiuikit` itself uses. It exits `1` and prints every error if the spec is invalid, and `0` if it's valid. AsyncAPI validation may also report warnings; these are printed but don't affect the exit code.
+Runs real schema validation against a local or remote OpenAPI or AsyncAPI document, powered by [`@scalar/openapi-parser`](https://www.npmjs.com/package/@scalar/openapi-parser) and [`@asyncapi/parser`](https://www.npmjs.com/package/@asyncapi/parser) — the same parsers `apiuikit` itself uses. It exits `1` and prints every error if the spec is invalid, and `0` if it's valid. AsyncAPI validation may also report warnings; these are printed but don't affect the exit code.
 
 | Flag | Description | Default |
 |---|---|---|
@@ -114,6 +119,7 @@ Runs real schema validation against a local OpenAPI or AsyncAPI document, powere
 ```bash
 apiuikit validate ./openapi.yaml
 apiuikit validate ./asyncapi.json
+apiuikit validate https://example.com/openapi.yaml
 apiuikit validate ./spec.yaml --yes
 ```
 

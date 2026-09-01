@@ -12,6 +12,8 @@ vi.mock("../validate/parsers.js", () => ({
   validateAsyncApiDocument: (...args: unknown[]) => validateAsyncApiDocument(...args),
 }));
 
+import { REMOTE_ASYNCAPI_YAML, REMOTE_OPENAPI_YAML } from "../test/remoteSpecs.js";
+
 const { registerValidateCommand } = await import("./validate.js");
 
 const OPENAPI_SPEC = "openapi: 3.0.0\ninfo:\n  title: Widgets API\n  version: 1.0.0\npaths: {}\n";
@@ -117,5 +119,38 @@ describe("validate command", () => {
 
     expect(process.exitCode).toBe(1);
     expect(errorSpy.mock.calls.flat().join("\n")).toMatch(/isn't installed/);
+  });
+
+  it("validates a remote OpenAPI spec URL", async () => {
+    validateOpenApiDocument.mockResolvedValue({ valid: true, issues: [] });
+
+    await runValidate(makeProgram(), [REMOTE_OPENAPI_YAML]);
+
+    expect(validateOpenApiDocument).toHaveBeenCalledTimes(1);
+    expect(validateAsyncApiDocument).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
+    expect(logSpy.mock.calls.flat().join("\n")).toMatch(/OpenAPI spec is valid/);
+  });
+
+  it("validates a remote AsyncAPI spec URL", async () => {
+    validateAsyncApiDocument.mockResolvedValue({ valid: true, issues: [] });
+
+    await runValidate(makeProgram(), [REMOTE_ASYNCAPI_YAML]);
+
+    expect(validateAsyncApiDocument).toHaveBeenCalledTimes(1);
+    expect(validateOpenApiDocument).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it("prints an error and exits 1 when the remote spec URL fails", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runValidate(makeProgram(), ["https://example.com/openapi.yaml"]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls.flat().join("\n")).toMatch(/Could not reach/);
+
+    vi.unstubAllGlobals();
   });
 });

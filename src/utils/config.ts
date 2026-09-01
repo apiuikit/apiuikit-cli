@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { isRemoteUrl, fetchRemoteFile, RemoteFetchError } from "./remote.js";
 
 export type ParsedConfig = Record<string, unknown>;
 
@@ -8,8 +9,19 @@ const SUPPORTED_EXTENSIONS = new Set([".json", ".yaml", ".yml"]);
 
 export class ConfigError extends Error {}
 
-export function readConfigFile(configPath: string): ParsedConfig {
-  const ext = path.extname(configPath).toLowerCase();
+function extensionOf(configPath: string): string {
+  if (isRemoteUrl(configPath)) {
+    try {
+      return path.extname(new URL(configPath).pathname).toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+  return path.extname(configPath).toLowerCase();
+}
+
+export async function readConfigFile(configPath: string): Promise<ParsedConfig> {
+  const ext = extensionOf(configPath);
   if (!SUPPORTED_EXTENSIONS.has(ext)) {
     throw new ConfigError(
       `Unsupported config file type "${ext || "(none)"}". Expected one of: ${[...SUPPORTED_EXTENSIONS].join(", ")}`,
@@ -17,17 +29,28 @@ export function readConfigFile(configPath: string): ParsedConfig {
   }
 
   let raw: string;
-  try {
-    raw = readFileSync(configPath, "utf8");
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      throw new ConfigError(`No such config file: ${configPath}`);
+  if (isRemoteUrl(configPath)) {
+    try {
+      raw = await fetchRemoteFile(configPath);
+    } catch (error) {
+      if (error instanceof RemoteFetchError) {
+        throw new ConfigError(error.message);
+      }
+      throw error;
     }
-    if (err.code === "EISDIR") {
-      throw new ConfigError(`Expected a file but got a directory: ${configPath}`);
+  } else {
+    try {
+      raw = readFileSync(configPath, "utf8");
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        throw new ConfigError(`No such config file: ${configPath}`);
+      }
+      if (err.code === "EISDIR") {
+        throw new ConfigError(`Expected a file but got a directory: ${configPath}`);
+      }
+      throw error;
     }
-    throw error;
   }
 
   let parsed: unknown;

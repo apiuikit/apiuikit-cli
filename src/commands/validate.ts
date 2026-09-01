@@ -1,7 +1,7 @@
-import path from "node:path";
 import pc from "picocolors";
 import type { Command } from "commander";
 import { readSpecFile, detectSpecType, type SpecType } from "../utils/spec.js";
+import { resolveLocation } from "../utils/remote.js";
 import { validateOpenApiDocument, validateAsyncApiDocument, type ValidationResult } from "../validate/parsers.js";
 import { success, error as printError, examples } from "../utils/output.js";
 
@@ -17,8 +17,8 @@ interface ValidateOptions {
 export function registerValidateCommand(program: Command): void {
   program
     .command("validate")
-    .description("Validate a local OpenAPI or AsyncAPI spec")
-    .argument("<input>", "path to a local .yaml, .yml, or .json OpenAPI/AsyncAPI spec")
+    .description("Validate a local or remote OpenAPI or AsyncAPI spec")
+    .argument("<input>", "path or URL to a .yaml, .yml, or .json OpenAPI/AsyncAPI spec")
     .option("-y, --yes", "install the required validator package automatically without prompting", false)
     .addHelpText(
       "after",
@@ -26,6 +26,7 @@ export function registerValidateCommand(program: Command): void {
         examples([
           "apiuikit validate ./openapi.yaml",
           "apiuikit validate ./asyncapi.json",
+          "apiuikit validate https://example.com/openapi.yaml",
           "apiuikit validate ./spec.yaml --yes",
         ]),
     )
@@ -38,8 +39,8 @@ export function registerValidateCommand(program: Command): void {
 }
 
 async function runValidate(input: string, options: ValidateOptions): Promise<void> {
-  const inputPath = path.resolve(process.cwd(), input);
-  const { raw, parsed } = readSpecFile(inputPath);
+  const inputPath = resolveLocation(input);
+  const { raw, parsed } = await readSpecFile(inputPath);
   const type = detectSpecType(parsed);
 
   const result =

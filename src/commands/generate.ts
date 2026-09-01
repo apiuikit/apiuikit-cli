@@ -5,6 +5,7 @@ import type { Command } from "commander";
 import { readSpecFile, detectSpecType, getSpecTitle, type SpecType } from "../utils/spec.js";
 import { readConfigFile } from "../utils/config.js";
 import { readHtmlFragmentFile } from "../utils/htmlFragment.js";
+import { resolveLocation } from "../utils/remote.js";
 import { copyWebComponentAssets } from "../generate/assets.js";
 import { buildHtml } from "../generate/site.js";
 import { box, error as printError, examples } from "../utils/output.js";
@@ -26,12 +27,12 @@ export function registerGenerateCommand(program: Command): void {
   program
     .command("generate")
     .alias("gen")
-    .description("Generate a static API documentation site from a local OpenAPI or AsyncAPI spec")
-    .argument("<input>", "path to a local .yaml, .yml, or .json OpenAPI/AsyncAPI spec")
+    .description("Generate a static API documentation site from a local or remote OpenAPI or AsyncAPI spec")
+    .argument("<input>", "path or URL to a .yaml, .yml, or .json OpenAPI/AsyncAPI spec")
     .option("-o, --output <dir>", "output directory for the generated site", "apiuikit-docs")
-    .option("-c, --config <file>", "path to a JSON or YAML config file passed through to apiuikit (theme, sidebar, show/hide sections, etc.)")
-    .option("--header <file>", "path to an HTML file injected at the top of the page, before the documentation")
-    .option("--footer <file>", "path to an HTML file injected at the bottom of the page, after the documentation")
+    .option("-c, --config <file>", "path or URL to a JSON or YAML config file passed through to apiuikit (theme, sidebar, show/hide sections, etc.)")
+    .option("--header <file>", "path or URL to an HTML file injected at the top of the page, before the documentation")
+    .option("--footer <file>", "path or URL to an HTML file injected at the bottom of the page, after the documentation")
     .option("-f, --force", "overwrite the output directory if it already contains files", false)
     .addHelpText(
       "after",
@@ -39,14 +40,15 @@ export function registerGenerateCommand(program: Command): void {
         examples([
           "apiuikit generate ./openapi.yaml",
           "apiuikit generate ./asyncapi.json --output ./site",
+          "apiuikit generate https://example.com/openapi.yaml",
           "apiuikit generate ./spec.yaml --config ./apiuikit.config.json",
           "apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html",
           "apiuikit generate ./spec.yaml --output ./docs --force",
         ]),
     )
-    .action((input: string, options: GenerateOptions) => {
+    .action(async (input: string, options: GenerateOptions) => {
       try {
-        runGenerate(input, options);
+        await runGenerate(input, options);
       } catch (error) {
         printError(error instanceof Error ? error.message : String(error));
         process.exitCode = 1;
@@ -54,19 +56,19 @@ export function registerGenerateCommand(program: Command): void {
     });
 }
 
-function runGenerate(input: string, options: GenerateOptions): void {
-  const inputPath = path.resolve(process.cwd(), input);
+async function runGenerate(input: string, options: GenerateOptions): Promise<void> {
+  const inputPath = resolveLocation(input);
   const outputDir = path.resolve(process.cwd(), options.output);
 
-  const { raw, parsed } = readSpecFile(inputPath);
+  const { raw, parsed } = await readSpecFile(inputPath);
   const type = detectSpecType(parsed);
   const title = getSpecTitle(parsed);
-  const config = options.config ? readConfigFile(path.resolve(process.cwd(), options.config)) : undefined;
+  const config = options.config ? await readConfigFile(resolveLocation(options.config)) : undefined;
   const headerHtml = options.header
-    ? readHtmlFragmentFile(path.resolve(process.cwd(), options.header), "header")
+    ? await readHtmlFragmentFile(resolveLocation(options.header), "header")
     : undefined;
   const footerHtml = options.footer
-    ? readHtmlFragmentFile(path.resolve(process.cwd(), options.footer), "footer")
+    ? await readHtmlFragmentFile(resolveLocation(options.footer), "footer")
     : undefined;
 
   ensureOutputDir(outputDir, options.force);

@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Command } from "commander";
+import { REMOTE_ASYNCAPI_YAML, REMOTE_OPENAPI_YAML } from "../test/remoteSpecs.js";
+import { REMOTE_FOOTER_HTML, REMOTE_HEADER_HTML } from "../test/remoteSpecs.js";
 import { registerGenerateCommand } from "./generate.js";
 
 const OPENAPI_SPEC = "openapi: 3.0.0\ninfo:\n  title: Widgets API\npaths: {}\n";
@@ -193,5 +195,99 @@ describe("generate command", () => {
 
     expect(process.exitCode).toBeUndefined();
     expect(existsSync(path.join(output, "index.html"))).toBe(true);
+  });
+
+  it("generates a site from a remote OpenAPI spec URL", async () => {
+    const output = path.join(dir, "site-openapi");
+
+    await runGenerate(makeProgram(), [REMOTE_OPENAPI_YAML, "--output", output]);
+
+    expect(process.exitCode).toBeUndefined();
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    expect(html).toContain("<apiuikit-openapi-renderer");
+    expect(html).toContain("<title>Swagger Petstore</title>");
+  });
+
+  it("generates a site from a remote AsyncAPI spec URL", async () => {
+    const output = path.join(dir, "site-asyncapi");
+
+    await runGenerate(makeProgram(), [REMOTE_ASYNCAPI_YAML, "--output", output]);
+
+    expect(process.exitCode).toBeUndefined();
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    expect(html).toContain("<apiuikit-asyncapi-renderer");
+    expect(html).toContain("<title>Streetlights Kafka API</title>");
+  });
+
+  it("injects remote header and footer HTML URLs into the generated page", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site-remote-branding");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [
+      input,
+      "--output",
+      output,
+      "--header",
+      REMOTE_HEADER_HTML,
+      "--footer",
+      REMOTE_FOOTER_HTML,
+    ]);
+
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    const headerIndex = html.indexOf("apiuikit-example-header");
+    const elementIndex = html.indexOf("<apiuikit-openapi-renderer");
+    const footerIndex = html.indexOf("apiuikit-example-footer");
+    const bodyCloseIndex = html.indexOf("</body>");
+    expect(headerIndex).toBeGreaterThan(-1);
+    expect(headerIndex).toBeLessThan(elementIndex);
+    expect(footerIndex).toBeGreaterThan(-1);
+    expect(footerIndex).toBeLessThan(bodyCloseIndex);
+  });
+
+  it("fetches a config file over http(s) when --config is a URL", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => JSON.stringify({ theme: "dark" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runGenerate(makeProgram(), [
+      input,
+      "--output",
+      output,
+      "--config",
+      "https://example.com/apiuikit.config.json",
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/apiuikit.config.json");
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    expect(html).toContain('.config = {"theme":"dark"};');
+
+    vi.unstubAllGlobals();
+  });
+
+  it("sets a non-zero exit code and prints an error when the remote spec URL fails", async () => {
+    const output = path.join(dir, "site");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      text: async () => "",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runGenerate(makeProgram(), ["https://example.com/missing.yaml", "--output", output]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("failed with status 404");
+    expect(existsSync(output)).toBe(false);
+
+    vi.unstubAllGlobals();
   });
 });

@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { REMOTE_ASYNCAPI_YAML, REMOTE_OPENAPI_YAML } from "../test/remoteSpecs.js";
 import {
   assertSupportedExtension,
   readSpecFile,
@@ -42,64 +43,123 @@ describe("readSpecFile", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("parses a valid JSON spec", () => {
+  it("parses a valid JSON spec", async () => {
     const file = path.join(dir, "spec.json");
     writeFileSync(file, JSON.stringify({ openapi: "3.0.0", info: { title: "Test" } }));
 
-    const { parsed, ext, raw } = readSpecFile(file);
+    const { parsed, ext, raw } = await readSpecFile(file);
     expect(ext).toBe(".json");
     expect(parsed).toEqual({ openapi: "3.0.0", info: { title: "Test" } });
     expect(raw).toContain("openapi");
   });
 
-  it("parses a valid YAML spec", () => {
+  it("parses a valid YAML spec", async () => {
     const file = path.join(dir, "spec.yaml");
     writeFileSync(file, "openapi: 3.0.0\ninfo:\n  title: Test\n");
 
-    const { parsed, ext } = readSpecFile(file);
+    const { parsed, ext } = await readSpecFile(file);
     expect(ext).toBe(".yaml");
     expect(parsed).toEqual({ openapi: "3.0.0", info: { title: "Test" } });
   });
 
-  it("throws for an unsupported extension", () => {
+  it("throws for an unsupported extension", async () => {
     const file = path.join(dir, "spec.txt");
     writeFileSync(file, "openapi: 3.0.0");
-    expect(() => readSpecFile(file)).toThrow(SpecError);
+    await expect(readSpecFile(file)).rejects.toThrow(SpecError);
   });
 
-  it("throws a SpecError for a missing file", () => {
+  it("throws a SpecError for a missing file", async () => {
     const file = path.join(dir, "missing.yaml");
-    expect(() => readSpecFile(file)).toThrow(/No such file/);
+    await expect(readSpecFile(file)).rejects.toThrow(/No such file/);
   });
 
-  it("throws a SpecError when the path is a directory", () => {
+  it("throws a SpecError when the path is a directory", async () => {
     const sub = path.join(dir, "adir.yaml");
     mkdirSync(sub);
-    expect(() => readSpecFile(sub)).toThrow(/Expected a file but got a directory/);
+    await expect(readSpecFile(sub)).rejects.toThrow(/Expected a file but got a directory/);
   });
 
-  it("throws a SpecError for invalid JSON", () => {
+  it("throws a SpecError for invalid JSON", async () => {
     const file = path.join(dir, "bad.json");
     writeFileSync(file, "{ not valid json");
-    expect(() => readSpecFile(file)).toThrow(/Could not parse/);
+    await expect(readSpecFile(file)).rejects.toThrow(/Could not parse/);
   });
 
-  it("throws a SpecError for invalid YAML", () => {
+  it("throws a SpecError for invalid YAML", async () => {
     const file = path.join(dir, "bad.yaml");
     writeFileSync(file, "key: [unclosed");
-    expect(() => readSpecFile(file)).toThrow(/Could not parse/);
+    await expect(readSpecFile(file)).rejects.toThrow(/Could not parse/);
   });
 
-  it("throws a SpecError when the parsed document is not an object", () => {
+  it("throws a SpecError when the parsed document is not an object", async () => {
     const file = path.join(dir, "array.json");
     writeFileSync(file, "[1, 2, 3]");
-    expect(() => readSpecFile(file)).toThrow(/does not contain a valid/);
+    await expect(readSpecFile(file)).rejects.toThrow(/does not contain a valid/);
   });
 
-  it("throws a SpecError when the parsed document is a scalar", () => {
+  it("throws a SpecError when the parsed document is a scalar", async () => {
     const file = path.join(dir, "scalar.yaml");
     writeFileSync(file, "just a string");
-    expect(() => readSpecFile(file)).toThrow(/does not contain a valid/);
+    await expect(readSpecFile(file)).rejects.toThrow(/does not contain a valid/);
+  });
+});
+
+describe("readSpecFile with remote URLs", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fetches and parses an OpenAPI spec from an http(s) URL", async () => {
+    const { parsed, ext } = await readSpecFile(REMOTE_OPENAPI_YAML);
+    expect(ext).toBe(".yaml");
+    expect(parsed.openapi).toBe("3.0.0");
+    expect(getSpecTitle(parsed)).toBe("Swagger Petstore");
+    expect(detectSpecType(parsed)).toBe("openapi");
+  });
+
+  it("fetches and parses an AsyncAPI spec from an http(s) URL", async () => {
+    const { parsed, ext } = await readSpecFile(REMOTE_ASYNCAPI_YAML);
+    expect(ext).toBe(".yml");
+    expect(parsed.asyncapi).toBe("3.1.0");
+    expect(getSpecTitle(parsed)).toBe("Streetlights Kafka API");
+    expect(detectSpecType(parsed)).toBe("asyncapi");
+  });
+
+  it("ignores query strings when detecting the extension", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => JSON.stringify({ openapi: "3.0.0" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ext } = await readSpecFile("https://example.com/spec.json?token=abc");
+    expect(ext).toBe(".json");
+  });
+
+  it("throws a SpecError when the remote request fails", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readSpecFile("https://example.com/openapi.yaml")).rejects.toThrow(SpecError);
+    await expect(readSpecFile("https://example.com/openapi.yaml")).rejects.toThrow(/Could not reach/);
+  });
+
+  it("throws a SpecError when the remote server returns a non-2xx status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      text: async () => "",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readSpecFile("https://example.com/missing.yaml")).rejects.toThrow(/failed with status 404/);
+  });
+
+  it("throws for an unsupported extension on a remote URL", async () => {
+    await expect(readSpecFile("https://example.com/spec.txt")).rejects.toThrow(/Unsupported file type/);
   });
 });
 

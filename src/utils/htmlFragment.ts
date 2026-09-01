@@ -1,8 +1,23 @@
 import { readFileSync } from "node:fs";
+import { isRemoteUrl, fetchRemoteFile, RemoteFetchError } from "./remote.js";
 
 export class HtmlFragmentError extends Error {}
 
-export function readHtmlFragmentFile(filePath: string, label: "header" | "footer"): string {
+export async function readHtmlFragmentFile(
+  filePath: string,
+  label: "header" | "footer",
+): Promise<string> {
+  if (isRemoteUrl(filePath)) {
+    try {
+      return await fetchRemoteFile(filePath);
+    } catch (error) {
+      if (error instanceof RemoteFetchError) {
+        throw new HtmlFragmentError(error.message);
+      }
+      throw error;
+    }
+  }
+
   try {
     return readFileSync(filePath, "utf8");
   } catch (error) {

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { isRemoteUrl, fetchRemoteFile, RemoteFetchError } from "./remote.js";
 
 export type SpecType = "openapi" | "asyncapi";
 
@@ -16,8 +17,19 @@ const SUPPORTED_EXTENSIONS = new Set([".yaml", ".yml", ".json"]);
 
 export class SpecError extends Error {}
 
+function extensionOf(inputPath: string): string {
+  if (isRemoteUrl(inputPath)) {
+    try {
+      return path.extname(new URL(inputPath).pathname).toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+  return path.extname(inputPath).toLowerCase();
+}
+
 export function assertSupportedExtension(inputPath: string): string {
-  const ext = path.extname(inputPath).toLowerCase();
+  const ext = extensionOf(inputPath);
   if (!SUPPORTED_EXTENSIONS.has(ext)) {
     throw new SpecError(
       `Unsupported file type "${ext || "(none)"}". Expected one of: ${[...SUPPORTED_EXTENSIONS].join(", ")}`,
@@ -26,20 +38,32 @@ export function assertSupportedExtension(inputPath: string): string {
   return ext;
 }
 
-export function readSpecFile(inputPath: string): SpecFile {
+export async function readSpecFile(inputPath: string): Promise<SpecFile> {
   const ext = assertSupportedExtension(inputPath);
+
   let raw: string;
-  try {
-    raw = readFileSync(inputPath, "utf8");
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      throw new SpecError(`No such file: ${inputPath}`);
+  if (isRemoteUrl(inputPath)) {
+    try {
+      raw = await fetchRemoteFile(inputPath);
+    } catch (error) {
+      if (error instanceof RemoteFetchError) {
+        throw new SpecError(error.message);
+      }
+      throw error;
     }
-    if (err.code === "EISDIR") {
-      throw new SpecError(`Expected a file but got a directory: ${inputPath}`);
+  } else {
+    try {
+      raw = readFileSync(inputPath, "utf8");
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        throw new SpecError(`No such file: ${inputPath}`);
+      }
+      if (err.code === "EISDIR") {
+        throw new SpecError(`Expected a file but got a directory: ${inputPath}`);
+      }
+      throw error;
     }
-    throw error;
   }
 
   let parsed: unknown;
