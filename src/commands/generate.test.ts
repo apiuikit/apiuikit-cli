@@ -6,6 +6,7 @@ import { Command } from "commander";
 import { REMOTE_ASYNCAPI_YAML, REMOTE_OPENAPI_YAML } from "../test/remoteSpecs.js";
 import { REMOTE_FOOTER_HTML, REMOTE_HEADER_HTML } from "../test/remoteSpecs.js";
 import { registerGenerateCommand } from "./generate.js";
+import { readWebComponentAssets } from "../generate/assets.js";
 
 const OPENAPI_SPEC = "openapi: 3.0.0\ninfo:\n  title: Widgets API\npaths: {}\n";
 const ASYNCAPI_SPEC = JSON.stringify({ asyncapi: "2.6.0", info: { title: "Events API" }, channels: {} });
@@ -52,6 +53,93 @@ describe("generate command", () => {
     expect(html).toContain("<title>Widgets API</title>");
     expect(existsSync(path.join(output, "assets", "apiuikit.js"))).toBe(true);
     expect(existsSync(path.join(output, "assets", "apiuikit.css"))).toBe(true);
+  });
+
+  it("generates a single self-contained index.html with no assets/ directory when --single-file is passed", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file"]);
+
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(path.join(output, "assets"))).toBe(false);
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    const { scriptContent, styleContent } = readWebComponentAssets();
+    expect(html).toContain(`<style>\n${styleContent.slice(0, 120)}`);
+    expect(html).toContain(`<script>\n${scriptContent.slice(0, 120)}`);
+    expect(html.length).toBeGreaterThan(scriptContent.length);
+    expect(html).not.toContain('<link rel="stylesheet" href="assets/apiuikit.css" />');
+    expect(html).not.toContain('<script src="assets/apiuikit.js"></script>');
+  });
+
+  it("removes leftover assets/ from a previous generate when --single-file --force is passed", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output]);
+    expect(existsSync(path.join(output, "assets", "apiuikit.js"))).toBe(true);
+
+    process.exitCode = undefined;
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file", "--force"]);
+
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(path.join(output, "assets"))).toBe(false);
+    const html = readFileSync(path.join(output, "index.html"), "utf8");
+    const { scriptContent, styleContent } = readWebComponentAssets();
+    expect(html).toContain(`<style>\n${styleContent.slice(0, 120)}`);
+    expect(html).toContain(`<script>\n${scriptContent.slice(0, 120)}`);
+  });
+
+  it("does not delete extra files in assets/ when switching to --single-file --force", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output]);
+    writeFileSync(path.join(output, "assets", "custom.css"), "/* keep me */");
+
+    process.exitCode = undefined;
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file", "--force"]);
+
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(path.join(output, "assets", "apiuikit.js"))).toBe(false);
+    expect(existsSync(path.join(output, "assets", "apiuikit.css"))).toBe(false);
+    expect(readFileSync(path.join(output, "assets", "custom.css"), "utf8")).toBe("/* keep me */");
+  });
+
+  it("shows single-file mode in the summary output only when --single-file is passed", async () => {
+    const input = path.join(dir, "spec.yaml");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", path.join(dir, "site-single"), "--single-file"]);
+    const singleFileOutput = logSpy.mock.calls.map((call: unknown[]) => call.join(" ")).join("\n");
+    expect(singleFileOutput).toContain("single file");
+
+    logSpy.mockClear();
+
+    await runGenerate(makeProgram(), [input, "--output", path.join(dir, "site-default")]);
+    const defaultOutput = logSpy.mock.calls.map((call: unknown[]) => call.join(" ")).join("\n");
+    expect(defaultOutput).not.toContain("single file");
+  });
+
+  it("still enforces the non-empty output directory check when --single-file is passed", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+    mkdirSync(output);
+    writeFileSync(path.join(output, "existing.txt"), "keep me");
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file"]);
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(path.join(output, "index.html"))).toBe(false);
+
+    process.exitCode = undefined;
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file", "--force"]);
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(path.join(output, "index.html"))).toBe(true);
+    expect(existsSync(path.join(output, "assets"))).toBe(false);
   });
 
   it("generates a site from an AsyncAPI spec", async () => {

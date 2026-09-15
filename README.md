@@ -44,6 +44,7 @@ apiuikit generate <input> [options]
 | `--header <file>` | HTML file injected at the top of the page, before the documentation — path or URL | — |
 | `--footer <file>` | HTML file injected at the bottom of the page, after the documentation — path or URL | — |
 | `-f, --force` | Overwrite the output directory if it already contains files | `false` |
+| `--single-file` | Embed the script and stylesheet directly in `index.html` instead of a separate `assets/` directory — one portable file, but much larger (~3–4 MB) | `false` |
 
 ### Examples
 
@@ -54,11 +55,20 @@ apiuikit generate https://example.com/openapi.yaml
 apiuikit generate ./spec.yaml --config ./apiuikit.config.json
 apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html
 apiuikit generate ./spec.yaml --output ./docs --force
+apiuikit generate ./spec.yaml --single-file
 ```
 
 `<input>` also accepts a `http://`/`https://` URL — the spec is fetched directly, nothing is downloaded to disk first. This is useful when the spec is published by another repo, an API gateway, or a docs CDN rather than checked into your project. `--config`, `--header`, and `--footer` accept a URL on the same terms.
 
-The generated `index.html`, along with a self-contained script and stylesheet under `assets/`, is fully static — open it directly from disk (`file://`) or serve it from any static host (GitHub Pages, S3, nginx, etc.). No build step, no server, no network calls at runtime.
+By default, `generate` writes `index.html` alongside a self-contained script and stylesheet under `assets/`. Either way the output is fully static — open it directly from disk (`file://`) or serve it from any static host (GitHub Pages, S3, nginx, etc.). No build step, no server, no network calls at runtime.
+
+### Single-file output
+
+`--single-file` embeds the script and stylesheet directly inside `index.html` instead of writing them to `assets/`, so the whole site is one file — handy for emailing, attaching, or dropping anywhere without keeping a folder together. The tradeoff is size: the script is inlined rather than linked, so `index.html` grows to several megabytes and the script is no longer separately cacheable. Rendered output is otherwise identical to the default mode.
+
+```bash
+apiuikit generate ./openapi.yaml --single-file
+```
 
 ### Config
 

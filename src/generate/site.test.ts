@@ -4,8 +4,7 @@ import { buildHtml } from "./site.js";
 const baseOptions = {
   title: "My API",
   specText: "openapi: 3.0.0",
-  scriptHref: "assets/apiuikit.js",
-  styleHref: "assets/apiuikit.css",
+  assets: { mode: "linked", scriptHref: "assets/apiuikit.js", styleHref: "assets/apiuikit.css" } as const,
 };
 
 describe("buildHtml", () => {
@@ -24,10 +23,70 @@ describe("buildHtml", () => {
     expect(() => buildHtml({ ...baseOptions, type: "graphql" })).toThrow(/Unknown spec type/);
   });
 
-  it("wires up the provided script and style hrefs", () => {
+  it("wires up linked script/style hrefs when assets.mode is 'linked'", () => {
     const html = buildHtml({ ...baseOptions, type: "openapi" });
     expect(html).toContain('<link rel="stylesheet" href="assets/apiuikit.css" />');
     expect(html).toContain('<script src="assets/apiuikit.js"></script>');
+  });
+
+  it("embeds the stylesheet in an inline <style> tag when assets.mode is 'inline'", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      assets: { mode: "inline", scriptContent: "/* js */", styleContent: "body{color:red}" },
+    });
+    expect(html).toContain("<style>\nbody{color:red}\n</style>");
+    expect(html).not.toContain('<link rel="stylesheet"');
+  });
+
+  it("embeds the script in an inline <script> tag when assets.mode is 'inline'", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      assets: { mode: "inline", scriptContent: "console.log('hi')", styleContent: "/* css */" },
+    });
+    expect(html).toContain("<script>\nconsole.log('hi')\n</script>");
+    expect(html).not.toContain("<script src=");
+  });
+
+  it("neutralizes a literal </script sequence in inline script content", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      assets: {
+        mode: "inline",
+        scriptContent: 'var t = "</script><script>evil()</script>";',
+        styleContent: "",
+      },
+    });
+    expect(html).not.toContain("</script><script>evil()");
+    expect(html).toContain('var t = "<\\/script><script>evil()<\\/script>";');
+  });
+
+  it("neutralizes a literal </style sequence in inline style content", () => {
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      assets: {
+        mode: "inline",
+        scriptContent: "",
+        styleContent: 'body::before{content:"</style><style>evil{}</style>"}',
+      },
+    });
+    expect(html).not.toContain("</style><style>evil{}");
+    expect(html).toContain('body::before{content:"<\\/style><style>evil{}<\\/style>"}');
+  });
+
+  it("leaves inline content without a close-tag sequence byte-for-byte unchanged", () => {
+    const benignScript = "if (a < b && a <= b) { const x = 10 / 2; }";
+    const benignStyle = "/* a < b, not a close tag */ .foo{content:'a<b'}";
+    const html = buildHtml({
+      ...baseOptions,
+      type: "openapi",
+      assets: { mode: "inline", scriptContent: benignScript, styleContent: benignStyle },
+    });
+    expect(html).toContain(benignScript);
+    expect(html).toContain(benignStyle);
   });
 
   it("sets the page title, escaping HTML-sensitive characters", () => {

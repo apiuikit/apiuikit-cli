@@ -6,8 +6,8 @@ import { readSpecFile, detectSpecType, getSpecTitle, type SpecType } from "../ut
 import { readConfigFile } from "../utils/config.js";
 import { readHtmlFragmentFile } from "../utils/htmlFragment.js";
 import { resolveLocation } from "../utils/remote.js";
-import { copyWebComponentAssets } from "../generate/assets.js";
-import { buildHtml } from "../generate/site.js";
+import { copyWebComponentAssets, readWebComponentAssets, removeCopiedWebComponentAssets } from "../generate/assets.js";
+import { buildHtml, type SiteAssets } from "../generate/site.js";
 import { box, error as printError, examples } from "../utils/output.js";
 
 const TYPE_LABEL: Record<SpecType, string> = {
@@ -21,6 +21,7 @@ interface GenerateOptions {
   header?: string;
   footer?: string;
   force: boolean;
+  singleFile: boolean;
 }
 
 export function registerGenerateCommand(program: Command): void {
@@ -34,6 +35,11 @@ export function registerGenerateCommand(program: Command): void {
     .option("--header <file>", "path or URL to an HTML file injected at the top of the page, before the documentation")
     .option("--footer <file>", "path or URL to an HTML file injected at the bottom of the page, after the documentation")
     .option("-f, --force", "overwrite the output directory if it already contains files", false)
+    .option(
+      "--single-file",
+      "embed the stylesheet and script directly in index.html instead of writing a separate assets/ directory (produces one portable file, but a much larger one)",
+      false,
+    )
     .addHelpText(
       "after",
       () =>
@@ -44,6 +50,7 @@ export function registerGenerateCommand(program: Command): void {
           "apiuikit generate ./spec.yaml --config ./apiuikit.config.json",
           "apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html",
           "apiuikit generate ./spec.yaml --output ./docs --force",
+          "apiuikit generate ./spec.yaml --single-file",
         ]),
     )
     .action(async (input: string, options: GenerateOptions) => {
@@ -73,8 +80,14 @@ async function runGenerate(input: string, options: GenerateOptions): Promise<voi
 
   ensureOutputDir(outputDir, options.force);
 
-  const { scriptHref, styleHref } = copyWebComponentAssets(outputDir);
-  const html = buildHtml({ type, title, specText: raw, config, scriptHref, styleHref, headerHtml, footerHtml });
+  let assets: SiteAssets;
+  if (options.singleFile) {
+    removeCopiedWebComponentAssets(outputDir);
+    assets = { mode: "inline", ...readWebComponentAssets() };
+  } else {
+    assets = { mode: "linked", ...copyWebComponentAssets(outputDir) };
+  }
+  const html = buildHtml({ type, title, specText: raw, config, assets, headerHtml, footerHtml });
 
   writeFileSync(path.join(outputDir, "index.html"), html, "utf8");
 
@@ -83,6 +96,7 @@ async function runGenerate(input: string, options: GenerateOptions): Promise<voi
     ["Spec type", TYPE_LABEL[type]],
     ["Title", title],
     ["Output", path.relative(process.cwd(), outputDir) || "."],
+    ...(options.singleFile ? ([["Mode", "single file (no assets/ directory)"]] as [string, string][]) : []),
     ...(config && options.config ? ([["Config", options.config]] as [string, string][]) : []),
     ...(headerHtml && options.header ? ([["Header", options.header]] as [string, string][]) : []),
     ...(footerHtml && options.footer ? ([["Footer", options.footer]] as [string, string][]) : []),
