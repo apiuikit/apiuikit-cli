@@ -1,5 +1,15 @@
 # @apiuikit/cli
 
+## 0.6.0
+
+### Minor Changes
+
+- 8092953: Add `--single-file` to `generate`, embedding the stylesheet and script directly in `index.html` instead of writing a separate `assets/` directory.
+
+### Patch Changes
+
+- cd42e5a: Bump `@apiuikit/web-component` to v1.7.0 for generated docs.
+
 ## 0.5.0
 
 ### Minor Changes
