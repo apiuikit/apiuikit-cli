@@ -73,6 +73,65 @@ describe("generate command", () => {
     expect(html).not.toContain('<script src="assets/apiuikit.js"></script>');
   });
 
+  it("writes to a custom filename when --single-file --out-file-name is passed", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file", "--out-file-name", "docs.html"]);
+
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(path.join(output, "index.html"))).toBe(false);
+    const html = readFileSync(path.join(output, "docs.html"), "utf8");
+    expect(html).toContain("<apiuikit-openapi-renderer");
+    const logOutput = logSpy.mock.calls.map((call: unknown[]) => call.join(" ")).join("\n");
+    expect(logOutput).toContain("docs.html");
+  });
+
+  it("errors when --out-file-name is passed without --single-file", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--out-file-name", "docs.html"]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("--out-file-name can only be used together with --single-file");
+    expect(existsSync(output)).toBe(false);
+  });
+
+  it("errors when --out-file-name doesn't end in .html or .htm", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [input, "--output", output, "--single-file", "--out-file-name", "docs"]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("must end with .html or .htm");
+    expect(existsSync(output)).toBe(false);
+  });
+
+  it("errors when --out-file-name is a path rather than a plain filename", async () => {
+    const input = path.join(dir, "spec.yaml");
+    const output = path.join(dir, "site");
+    writeFileSync(input, OPENAPI_SPEC);
+
+    await runGenerate(makeProgram(), [
+      input,
+      "--output",
+      output,
+      "--single-file",
+      "--out-file-name",
+      "../evil.html",
+    ]);
+
+    expect(process.exitCode).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("must be a plain filename, not a path");
+    expect(existsSync(output)).toBe(false);
+    expect(existsSync(path.join(dir, "evil.html"))).toBe(false);
+  });
+
   it("removes leftover assets/ from a previous generate when --single-file --force is passed", async () => {
     const input = path.join(dir, "spec.yaml");
     const output = path.join(dir, "site");

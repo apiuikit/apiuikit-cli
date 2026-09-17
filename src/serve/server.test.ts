@@ -128,6 +128,48 @@ describe("createStaticServer", () => {
   });
 });
 
+describe("createStaticServer with a custom indexFileName", () => {
+  let dir: string;
+  let server: Server;
+  let baseUrl: string;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(path.join(tmpdir(), "apiuikit-serve-custom-"));
+    writeFileSync(path.join(dir, "docs.html"), "<h1>custom entry</h1>");
+
+    server = createStaticServer(dir, "docs.html");
+    const freePort = await getFreePort();
+    const { port, host } = await listen(server, freePort);
+    baseUrl = `http://${host}:${port}/`;
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("serves the custom entry file at the root instead of index.html", async () => {
+    const { status, body } = await get(baseUrl, "/");
+    expect(status).toBe(200);
+    expect(body).toBe("<h1>custom entry</h1>");
+  });
+
+  it("serves .htm entry files as text/html so the browser renders them", async () => {
+    writeFileSync(path.join(dir, "docs.htm"), "<h1>htm entry</h1>");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    server = createStaticServer(dir, "docs.htm");
+    const freePort = await getFreePort();
+    const { port, host } = await listen(server, freePort);
+    baseUrl = `http://${host}:${port}/`;
+
+    const { status, body, contentType } = await get(baseUrl, "/");
+    expect(status).toBe(200);
+    expect(body).toBe("<h1>htm entry</h1>");
+    expect(contentType).toBe("text/html; charset=utf-8");
+  });
+});
+
 describe("listen", () => {
   it("resolves with the requested port when it is free", async () => {
     const freePort = await getFreePort();

@@ -22,6 +22,7 @@ interface GenerateOptions {
   footer?: string;
   force: boolean;
   singleFile: boolean;
+  outFileName?: string;
 }
 
 export function registerGenerateCommand(program: Command): void {
@@ -37,8 +38,12 @@ export function registerGenerateCommand(program: Command): void {
     .option("-f, --force", "overwrite the output directory if it already contains files", false)
     .option(
       "--single-file",
-      "embed the stylesheet and script directly in index.html instead of writing a separate assets/ directory (produces one portable file, but a much larger one)",
+      "embed the stylesheet and script directly in the HTML file instead of writing a separate assets/ directory (produces one portable file, but a much larger one)",
       false,
+    )
+    .option(
+      "--out-file-name <name>",
+      "custom filename for the generated HTML file (only valid with --single-file; must end in .html or .htm)",
     )
     .addHelpText(
       "after",
@@ -51,6 +56,7 @@ export function registerGenerateCommand(program: Command): void {
           "apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html",
           "apiuikit generate ./spec.yaml --output ./docs --force",
           "apiuikit generate ./spec.yaml --single-file",
+          "apiuikit generate ./spec.yaml --single-file --out-file-name docs.html",
         ]),
     )
     .action(async (input: string, options: GenerateOptions) => {
@@ -64,6 +70,7 @@ export function registerGenerateCommand(program: Command): void {
 }
 
 async function runGenerate(input: string, options: GenerateOptions): Promise<void> {
+  const outFileName = resolveOutFileName(options);
   const inputPath = resolveLocation(input);
   const outputDir = path.resolve(process.cwd(), options.output);
 
@@ -89,9 +96,9 @@ async function runGenerate(input: string, options: GenerateOptions): Promise<voi
   }
   const html = buildHtml({ type, title, specText: raw, config, assets, headerHtml, footerHtml });
 
-  writeFileSync(path.join(outputDir, "index.html"), html, "utf8");
+  writeFileSync(path.join(outputDir, outFileName), html, "utf8");
 
-  const indexPath = path.join(outputDir, "index.html");
+  const indexPath = path.join(outputDir, outFileName);
   box(`${pc.green("✔")} Generated API documentation site`, [
     ["Spec type", TYPE_LABEL[type]],
     ["Title", title],
@@ -104,6 +111,26 @@ async function runGenerate(input: string, options: GenerateOptions): Promise<voi
   console.log();
   console.log(`Open it in a browser:`);
   console.log(`  ${pc.cyan(`file://${indexPath}`)}`);
+}
+
+function resolveOutFileName(options: GenerateOptions): string {
+  if (!options.outFileName) {
+    return "index.html";
+  }
+
+  if (!options.singleFile) {
+    throw new Error("--out-file-name can only be used together with --single-file.");
+  }
+
+  const name = options.outFileName;
+  if (!/\.html?$/i.test(name)) {
+    throw new Error(`Invalid --out-file-name: "${name}" must end with .html or .htm.`);
+  }
+  if (name.includes("/") || name.includes("\\") || name === "." || name === "..") {
+    throw new Error(`Invalid --out-file-name: "${name}" must be a plain filename, not a path.`);
+  }
+
+  return name;
 }
 
 function ensureOutputDir(outputDir: string, force: boolean): void {

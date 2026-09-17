@@ -4,6 +4,7 @@ import path from "node:path";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
@@ -25,7 +26,7 @@ const MIME_TYPES: Record<string, string> = {
  * an escape (join+normalize alone can still resolve outside rootDir given
  * enough ".." segments — it does not clamp to a base).
  */
-function resolveRequestPath(rootDir: string, urlPath: string): string | null {
+function resolveRequestPath(rootDir: string, urlPath: string, indexFileName: string): string | null {
   const decoded = decodeURIComponent(urlPath.split("?")[0]);
   const requested = path.normalize(path.join(rootDir, decoded));
 
@@ -34,15 +35,15 @@ function resolveRequestPath(rootDir: string, urlPath: string): string | null {
   }
 
   if (existsSync(requested) && statSync(requested).isDirectory()) {
-    return path.join(requested, "index.html");
+    return path.join(requested, indexFileName);
   }
 
   return requested;
 }
 
-export function createStaticServer(rootDir: string): Server {
+export function createStaticServer(rootDir: string, indexFileName = "index.html"): Server {
   return createServer((req, res) => {
-    const filePath = resolveRequestPath(rootDir, req.url || "/");
+    const filePath = resolveRequestPath(rootDir, req.url || "/", indexFileName);
 
     if (!filePath || !existsSync(filePath) || !statSync(filePath).isFile()) {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });

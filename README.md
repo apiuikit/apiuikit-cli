@@ -44,7 +44,8 @@ apiuikit generate <input> [options]
 | `--header <file>` | HTML file injected at the top of the page, before the documentation — path or URL | — |
 | `--footer <file>` | HTML file injected at the bottom of the page, after the documentation — path or URL | — |
 | `-f, --force` | Overwrite the output directory if it already contains files | `false` |
-| `--single-file` | Embed the script and stylesheet directly in `index.html` instead of a separate `assets/` directory — one portable file, but much larger (~3–4 MB) | `false` |
+| `--single-file` | Embed the script and stylesheet in the HTML file instead of a separate `assets/` directory — one portable file, but much larger (~3–4 MB) | `false` |
+| `--out-file-name <name>` | Custom filename for the generated HTML file (only valid with `--single-file`; must end in `.html` or `.htm`) | `index.html` |
 
 ### Examples
 
@@ -56,6 +57,7 @@ apiuikit generate ./spec.yaml --config ./apiuikit.config.json
 apiuikit generate ./spec.yaml --header ./header.html --footer ./footer.html
 apiuikit generate ./spec.yaml --output ./docs --force
 apiuikit generate ./spec.yaml --single-file
+apiuikit generate ./spec.yaml --single-file --out-file-name docs.html
 ```
 
 `<input>` also accepts a `http://`/`https://` URL — the spec is fetched directly, nothing is downloaded to disk first. This is useful when the spec is published by another repo, an API gateway, or a docs CDN rather than checked into your project. `--config`, `--header`, and `--footer` accept a URL on the same terms.
@@ -64,11 +66,19 @@ By default, `generate` writes `index.html` alongside a self-contained script and
 
 ### Single-file output
 
-`--single-file` embeds the script and stylesheet directly inside `index.html` instead of writing them to `assets/`, so the whole site is one file — handy for emailing, attaching, or dropping anywhere without keeping a folder together. The tradeoff is size: the script is inlined rather than linked, so `index.html` grows to several megabytes and the script is no longer separately cacheable. Rendered output is otherwise identical to the default mode.
+`--single-file` embeds the script and stylesheet directly inside the HTML file instead of writing them to `assets/`, so the whole site is one file — handy for emailing, attaching, or dropping anywhere without keeping a folder together. By default that file is still named `index.html`. The tradeoff is size: the script is inlined rather than linked, so the file grows to several megabytes and the script is no longer separately cacheable. Rendered output is otherwise identical to the default mode.
 
 ```bash
 apiuikit generate ./openapi.yaml --single-file
 ```
+
+Pass `--out-file-name` (only valid with `--single-file`) to write a different filename — useful when the portable file is meant to be shared or dropped into another project directly:
+
+```bash
+apiuikit generate ./openapi.yaml --single-file --out-file-name widgets-api-docs.html
+```
+
+`--force` only overwrites the files this run writes, so renaming with `--out-file-name` leaves any previous `index.html` in place. Remove the old file yourself if you don't want both sitting side by side — otherwise `serve` will keep preferring `index.html`.
 
 ### Config
 
@@ -156,6 +166,8 @@ apiuikit serve [dir] [options]
 ```
 
 Serves a generated site over plain HTTP for local preview. `[dir]` defaults to `apiuikit-docs`, matching `generate`'s default output, so `apiuikit generate spec.yaml && apiuikit serve` works with no extra flags. This is a convenience wrapper around Node's built-in `http` module — it adds zero new dependencies to the CLI, since the generated site needs no server at all (it opens fine straight from `file://`).
+
+If the directory has no `index.html`, `serve` looks for a single `.html`/`.htm` file and uses that as the entry point at `/` — so a `--single-file --out-file-name` site still opens correctly. With zero or multiple candidates it warns and starts anyway; other files are still reachable, but visiting `/` returns 404.
 
 | Flag | Description | Default |
 |---|---|---|

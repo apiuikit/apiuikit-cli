@@ -62,7 +62,7 @@ describe("serve command", () => {
     await runServe(makeProgram(), [dir]);
 
     expect(process.exitCode).toBeUndefined();
-    expect(createStaticServer).toHaveBeenCalledWith(dir);
+    expect(createStaticServer).toHaveBeenCalledWith(dir, "index.html");
     expect(listen).toHaveBeenCalledWith(fakeServer, 4300);
     expect(logSpy.mock.calls.flat().join("\n")).toContain("http://127.0.0.1:4300/");
   });
@@ -73,6 +73,28 @@ describe("serve command", () => {
     expect(warnSpy).toHaveBeenCalled();
     expect(warnSpy.mock.calls[0][0]).toContain("No index.html found");
     expect(process.exitCode).toBeUndefined();
+    expect(createStaticServer).toHaveBeenCalledWith(dir, "index.html");
+  });
+
+  it("auto-detects a single custom-named .html file as the entry when index.html is missing", async () => {
+    writeFileSync(path.join(dir, "docs.html"), "<h1>hi</h1>");
+
+    await runServe(makeProgram(), [dir]);
+
+    expect(process.exitCode).toBeUndefined();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(createStaticServer).toHaveBeenCalledWith(dir, "docs.html");
+  });
+
+  it("warns and falls back to index.html when multiple .html files exist and none is index.html", async () => {
+    writeFileSync(path.join(dir, "docs.html"), "<h1>hi</h1>");
+    writeFileSync(path.join(dir, "other.html"), "<h1>bye</h1>");
+
+    await runServe(makeProgram(), [dir]);
+
+    expect(warnSpy).toHaveBeenCalled();
+    expect(warnSpy.mock.calls[0][0]).toContain("No index.html found");
+    expect(createStaticServer).toHaveBeenCalledWith(dir, "index.html");
   });
 
   it("passes the requested port through to listen()", async () => {

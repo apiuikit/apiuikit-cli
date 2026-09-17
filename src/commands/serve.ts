@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import pc from "picocolors";
 import type { Command } from "commander";
 import { createStaticServer, listen } from "../serve/server.js";
@@ -46,16 +46,14 @@ async function runServe(dir: string, options: ServeOptions): Promise<void> {
     );
   }
 
-  if (!existsSync(path.join(rootDir, "index.html"))) {
-    warn(`No index.html found in ${rootDir}`);
-  }
+  const indexFileName = resolveIndexFileName(rootDir);
 
   const preferredPort = Number.parseInt(options.port, 10);
   if (!Number.isInteger(preferredPort) || preferredPort < 0 || preferredPort > 65535) {
     throw new Error(`Invalid port: ${options.port}`);
   }
 
-  const server = createStaticServer(rootDir);
+  const server = createStaticServer(rootDir, indexFileName);
   const { port, host } = await listen(server, preferredPort);
   const url = `http://${host}:${port}/`;
 
@@ -75,4 +73,21 @@ async function runServe(dir: string, options: ServeOptions): Promise<void> {
     console.log(pc.dim("Stopping server..."));
     server.close(() => process.exit(0));
   });
+}
+
+function resolveIndexFileName(rootDir: string): string {
+  if (existsSync(path.join(rootDir, "index.html"))) {
+    return "index.html";
+  }
+
+  const htmlFiles = readdirSync(rootDir).filter(
+    (entry) => /\.html?$/i.test(entry) && statSync(path.join(rootDir, entry)).isFile(),
+  );
+
+  if (htmlFiles.length === 1) {
+    return htmlFiles[0];
+  }
+
+  warn(`No index.html found in ${rootDir}`);
+  return "index.html";
 }
